@@ -6,7 +6,7 @@ import { useSessionStore, PracticeQuestion } from "@/store/sessionStore";
 import Header from "@/components/ui/Header";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import StepIndicator from "@/components/ui/StepIndicator";
-import { ArrowRight, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
 export default function PracticePage() {
   const router = useRouter();
@@ -24,6 +24,26 @@ export default function PracticePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.practiceQuestions.length, store.weaknesses.length, store.isGeneratingPractice]);
 
+  useEffect(() => {
+    const q = store.practiceQuestions[currentStep];
+    if (q) {
+      const newAnswers: Record<string, string> = {};
+      if (q.type === "grammar" && q.grammarQuestions) {
+        q.grammarQuestions.forEach((gq) => {
+          if (gq.studentAnswer) newAnswers[gq.id] = gq.studentAnswer;
+        });
+      } else if (q.type === "translation" && q.translationAnswer) {
+        newAnswers.translation = q.translationAnswer;
+      } else if (q.type === "reading" && q.readingQuestions) {
+        q.readingQuestions.forEach((rq) => {
+          if (rq.studentAnswer) newAnswers[rq.id] = rq.studentAnswer;
+        });
+      }
+      setAnswers(newAnswers);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, store.practiceQuestions.length]);
+
   const currentQuestion = store.practiceQuestions[currentStep];
   const totalSteps = store.practiceQuestions.length;
 
@@ -35,7 +55,13 @@ export default function PracticePage() {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
       store.setCurrentPracticeStep(currentStep + 1);
-      setAnswers({});
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+      store.setCurrentPracticeStep(currentStep - 1);
     }
   };
 
@@ -47,9 +73,7 @@ export default function PracticePage() {
 
   const isLastStep = currentStep === totalSteps - 1;
 
-  // Store answers for current question when moving forward
-  const handleStepAction = async () => {
-    // Save answers to practice question
+  const saveCurrentAnswers = () => {
     const updatedQuestions = [...store.practiceQuestions];
     const q = updatedQuestions[currentStep];
     if (q) {
@@ -68,12 +92,20 @@ export default function PracticePage() {
       }
       store.setPracticeQuestions(updatedQuestions);
     }
+  };
 
+  const handleStepAction = async () => {
+    saveCurrentAnswers();
     if (isLastStep) {
       handleSubmitAll();
     } else {
       handleNextStep();
     }
+  };
+
+  const handlePrevAction = () => {
+    saveCurrentAnswers();
+    handlePrevStep();
   };
 
   const practiceTypeTitle = (type: string) => {
@@ -228,7 +260,18 @@ export default function PracticePage() {
             {currentQuestion.type === "reading" && renderReadingQuestion(currentQuestion)}
 
             {/* Action */}
-            <div className="mt-8 flex justify-end">
+            <div className="mt-8 flex justify-between">
+              <div>
+                {currentStep > 0 && (
+                  <button
+                    onClick={handlePrevAction}
+                    className="btn-secondary flex items-center gap-2"
+                  >
+                    <ArrowLeft size={16} />
+                    <span>前の問題へ</span>
+                  </button>
+                )}
+              </div>
               <button
                 onClick={handleStepAction}
                 className="btn-primary flex items-center gap-2"
@@ -240,7 +283,7 @@ export default function PracticePage() {
                   </>
                 ) : (
                   <>
-                    <span>次のステップへ</span>
+                    <span>次の問題へ</span>
                     <ArrowRight size={16} />
                   </>
                 )}
